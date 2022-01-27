@@ -1,4 +1,4 @@
-Package: dc.broadbandnow.broadband_prices
+Package: dc.broadbandnow.broadband.prices
 Type: Package
 Title: National Capital Region Internet Prices
 Version: 1.0.0
