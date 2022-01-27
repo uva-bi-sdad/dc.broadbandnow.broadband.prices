@@ -8,7 +8,7 @@
 
 get_data_file_names <- function() {
 
-  doi <- readLines("data/dataset_doi")[1]
+  doi <- readLines("dataset_doi")[1]
 
   file_names <- dataverse::dataset_files(
     dataset = doi,
