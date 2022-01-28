@@ -6,7 +6,6 @@
 #' @import dataverse
 #' @import readr
 #' @import jsonlite
-#' @import here
 #' @export
 #' @examples
 #' \dontrun{get_data_file("file_name.csv.xz", "./outdir")}
