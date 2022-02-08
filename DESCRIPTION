@@ -1,12 +1,15 @@
 Package: dc.broadbandnow.broadband.prices
 Type: Package
 Title: National Capital Region Internet Prices
-Version: 1.0.0
-Author: Zach Alerte
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
+Version: 0.1.0
+Authors@R: c(
+    person("Social and Decision Analytics Division (SDAD), Biocomplexity Institute, University of Virginia", role = c("aut")),
+    person("Zach", "Alerte", email = "", role = c("aut", "cre"))
+  )
+Description: Allows user to easily get broadband prices data from the SDAD Data Commons.  Data can be provided directly or in a file.
 License: CC0 1.0
 Encoding: UTF-8
 LazyData: true
-RoxygenNote: 7.1.2
+Depends:
+    R (>= 3.5.0)
+Imports: dataverse, readr, jsonlite
