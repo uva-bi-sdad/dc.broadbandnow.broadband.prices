@@ -1,3 +1,3 @@
-# dc.template
+# dc.broadbandnow.broadband.prices
 
-This package serves as the template for all Data Commons packages.
+Allows user to easily get broadband prices data from the SDAD Data Commons.  Data can be provided directly or in a file.

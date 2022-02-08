@@ -3,6 +3,5 @@
 export(get_data_file)
 export(get_data_file_names)
 import(dataverse)
-import(here)
 import(jsonlite)
 import(readr)

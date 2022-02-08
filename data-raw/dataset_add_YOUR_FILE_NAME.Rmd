@@ -31,12 +31,15 @@ dat_file_name <- table_names[1]
 db_schema_name <- "database_schema_name"  # Ex database schema_name: dc_education_training
 all_geos_dat <- DBI::dbReadTable(con, c(db_schema_name, dat_file_name))  
 
-for (i in 2:length(table_names))
-{ 
-  dat_file_name <- table_names[i]
-  dat <- DBI::dbReadTable(con, c(db_schema_name, dat_file_name)) 
+if (length(table_names) > 1)
+{
+  for (i in 2:length(table_names))
+  { 
+    dat_file_name <- table_names[i]
+    dat <- DBI::dbReadTable(con, c(db_schema_name, dat_file_name)) 
 
-  all_geos_dat <- rbind(all_geos_dat, dat)  
+    all_geos_dat <- rbind(all_geos_dat, dat)  
+  }
 }
 
 DBI::dbDisconnect(con)
@@ -57,11 +60,54 @@ readr::write_csv(get(all_geos_file_name),
 ## Upload Files to Dataverse Dataset
 
 ```{r upload}
-dataverse::add_dataset_file(
-  file = dat_file_path,
-  dataset = dataset_doi,
-  key = Sys.getenv("DATAVERSE_KEY"),
-  server   = Sys.getenv("DATAVERSE_SERVER"),
-  description = all_geos_file_name
+
+# check if file already exists
+
+file_names <- dataverse::dataset_files(
+    dataset = dataset_doi,
+    version = ":latest",
+    key = Sys.getenv("DATAVERSE_KEY"),
+    server = Sys.getenv("DATAVERSE_SERVER")
 )
+
+names <- c()
+
+if (length(file_names) > 0)
+{
+  for(i in 1:length(file_names))
+  {
+    names <- c(names, file_names[[i]]$dataFile$filename)
+  }
+
+} else
+{
+  names <- file_names
+}
+
+
+if (paste0(all_geos_file_name, ".csv.xz") %in% names) # file already exists, so we update it
+{
+   idx = which(names == paste0(all_geos_file_name, ".csv.xz"))
+  
+   dataverse::update_dataset_file(
+     file = dat_file_path,
+     dataset = dataset_doi,
+     id = file_names[[idx]]$dataFile$id,
+     key = Sys.getenv("DATAVERSE_KEY"),
+     server   = Sys.getenv("DATAVERSE_SERVER"),
+     description = all_geos_file_name
+   )
+   
+} else  # file doesn't exist, so we add it to the dataset
+{
+   dataverse::add_dataset_file(
+     file = dat_file_path,
+     dataset = dataset_doi,
+     key = Sys.getenv("DATAVERSE_KEY"),
+     server   = Sys.getenv("DATAVERSE_SERVER"),
+     description = all_geos_file_name
+   )
+}
+  
+
 ```
