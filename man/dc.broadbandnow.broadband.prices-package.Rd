@@ -6,6 +6,15 @@
 \alias{dc.broadbandnow.broadband.prices-package}
 \title{dc.broadbandnow.broadband.prices: National Capital Region Internet Prices}
 \description{
-More about what it does (maybe more than one line) Use four spaces when indenting paragraphs within the Description.
+Allows user to easily get broadband prices data from the SDAD Data Commons. Data can be provided directly or in a file.
+}
+\author{
+\strong{Maintainer}: Zach Alerte \email{rsu8zv@virginia.edu}
+
+Authors:
+\itemize{
+  \item Social and Decision Analytics Division (SDAD), Biocomplexity Institute, University of Virginia
+}
+
 }
 \keyword{internal}
