@@ -1,0 +1,306 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+```{r}
+library(sf)
+library(tidyverse)
+library(tmap)
+library(tmaptools)
+library(tigris)
+library(tidycensus)
+library(rmapshaper)
+library(matrixStats)
+library(SpatialAcc)
+library(reticulate)
+library(dplyr)
+library(tidygeocoder)
+library(readxl)
+```
+
+```{r}
+con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
+va_hd_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.va_hd_broadband_now_2021_internet_package_price")
+va_ct_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.va_ct_broadband_now_2021_internet_package_price")
+va_tr_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.va_tr_broadband_now_2021_internet_package_price")
+va_bg_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.va_bg_broadband_now_2021_internet_package_price_update")
+
+md_ct_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.md_ct_broadband_now_2021_internet_package_price")
+md_tr_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.md_tr_broadband_now_2021_internet_package_price")
+md_bg_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.md_bg_broadband_now_2021_internet_package_price_update")
+
+dc_ct_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.dc_ct_broadband_now_2021_internet_package_price")
+dc_tr_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.dc_tr_broadband_now_2021_internet_package_price")
+dc_bg_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.dc_bg_broadband_now_2021_internet_package_price_update")
+
+ncr_ct_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.ncr_ct_broadband_now_2021_internet_package_price")
+ncr_tr_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.ncr_tr_broadband_now_2021_internet_package_price")
+ncr_bg_broadband_now_2021_internet_package_price <- st_read(con, query = "SELECT * FROM dc_digital_communications.ncr_bg_broadband_now_2021_internet_package_price_update")
+dbDisconnect(con)
+
+```
+
+
+
+# looking at median income in tracts!
+```{r}
+dmv.ct <- get_acs(geography = "county",
+                 year = 2019,
+                 variables = c(median_household_income = "B19013_001"),
+                 state = c("VA", "DC", "MD"),
+                 survey = "acs5",
+                 output = "wide",
+                 geometry = TRUE)
+dmv.tr <- get_acs(geography = "tract",
+                 year = 2019,
+                 variables = c(median_household_income = "B19013_001"),
+                 state = c("VA", "DC", "MD"),
+                 survey = "acs5",
+                 output = "wide",
+                 geometry = TRUE)
+dmv.bg <- get_acs(geography = "block group",
+                 year = 2019,
+                 variables = c(median_household_income = "B19013_001"),
+                 state = c("VA", "DC", "MD"),
+                 survey = "acs5",
+                 output = "wide",
+                 geometry = TRUE)
+```
+
+
+```{r}
+ncr.tr <- dmv.tr[substr(dmv.tr$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
+ncr.inc_and_price <- left_join(ncr.tr[,c("GEOID", "median_household_incomeE")],
+                               ncr_tr_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+ncr.inc_and_price.2 <- st_drop_geometry(ncr.inc_and_price) %>% drop_na(value)
+ncr.inc_and_price.3 <- st_drop_geometry(ncr.tr) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "tract") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(ncr.inc_and_price.2)
+
+# VA
+va.tr <- dmv.tr[substr(dmv.tr$GEOID, 1, 2) == "51",]
+va.inc_and_price <- left_join(va.tr[,c("GEOID", "median_household_incomeE")],
+                              va_tr_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+va.inc_and_price.2 <- st_drop_geometry(va.inc_and_price) %>% drop_na(value)
+va.inc_and_price.3 <- st_drop_geometry(va.tr) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "tract") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(va.inc_and_price.2)
+
+# DC
+dc.tr <- dmv.tr[substr(dmv.tr$GEOID, 1, 2) == "11",]
+dc.inc_and_price <- left_join(dc.tr[,c("GEOID", "median_household_incomeE")],
+                              dc_tr_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+dc.inc_and_price.2 <- st_drop_geometry(dc.inc_and_price) %>% drop_na(value)
+dc.inc_and_price.3 <- st_drop_geometry(dc.tr) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "tract") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(dc.inc_and_price.2)
+
+# MD
+md.tr <- dmv.tr[substr(dmv.tr$GEOID, 1, 2) == "24",]
+md.inc_and_price <- left_join(md.tr[,c("GEOID", "median_household_incomeE")],
+                              md_tr_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+md.inc_and_price.2 <- st_drop_geometry(md.inc_and_price) %>% drop_na(value)
+md.inc_and_price.3 <- st_drop_geometry(md.tr) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "tract") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(md.inc_and_price.2)
+# 
+# con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
+# dc_dbWriteTable(con, "dc_digital_communications", "ncr_tr_sdad_2021_perc_income_on_internet_update", ncr.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "va_tr_sdad_2021_perc_income_on_internet_update", va.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "dc_tr_sdad_2021_perc_income_on_internet_update", dc.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "md_tr_sdad_2021_perc_income_on_internet_update", md.inc_and_price.3)
+# dbDisconnect(con)
+```
+
+
+```{r}
+ncr.ct <- dmv.ct[substr(dmv.ct$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
+ncr.inc_and_price <- left_join(ncr.ct[,c("GEOID", "median_household_incomeE")],
+                               ncr_ct_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+ncr.inc_and_price.2 <- st_drop_geometry(ncr.inc_and_price) %>% drop_na(value)
+ncr.inc_and_price.3 <- st_drop_geometry(ncr.ct) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "county") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(ncr.inc_and_price.2)
+
+# VA
+va.ct <- dmv.ct[substr(dmv.ct$GEOID, 1, 2) == "51",]
+va.inc_and_price <- left_join(va.ct[,c("GEOID", "median_household_incomeE")],
+                              va_ct_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+va.inc_and_price.2 <- st_drop_geometry(va.inc_and_price) %>% drop_na(value)
+va.inc_and_price.3 <- st_drop_geometry(va.ct) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "county") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(va.inc_and_price.2)
+
+# DC
+dc.ct <- dmv.ct[substr(dmv.ct$GEOID, 1, 2) == "11",]
+dc.inc_and_price <- left_join(dc.ct[,c("GEOID", "median_household_incomeE")],
+                              dc_ct_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+dc.inc_and_price.2 <- st_drop_geometry(dc.inc_and_price) %>% drop_na(value)
+dc.inc_and_price.3 <- st_drop_geometry(dc.ct) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "county") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(dc.inc_and_price.2)
+
+# MD
+md.ct <- dmv.ct[substr(dmv.ct$GEOID, 1, 2) == "24",]
+md.inc_and_price <- left_join(md.ct[,c("GEOID", "median_household_incomeE")],
+                              md_ct_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+md.inc_and_price.2 <- st_drop_geometry(md.inc_and_price) %>% drop_na(value)
+md.inc_and_price.3 <- st_drop_geometry(md.ct) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "county") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(md.inc_and_price.2)
+
+
+# con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
+# dc_dbWriteTable(con, "dc_digital_communications", "ncr_ct_sdad_2021_perc_income_on_internet_update", ncr.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "va_ct_sdad_2021_perc_income_on_internet_update", va.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "dc_ct_sdad_2021_perc_income_on_internet_update", dc.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "md_ct_sdad_2021_perc_income_on_internet_update", md.inc_and_price.3)
+# dbDisconnect(con)
+```
+
+
+```{r}
+ncr.bg <- dmv.bg[substr(dmv.bg$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
+ncr.inc_and_price <- left_join(ncr.bg[,c("GEOID", "median_household_incomeE")],
+                               ncr_bg_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+ncr.inc_and_price.2 <- st_drop_geometry(ncr.inc_and_price) %>% drop_na(value)
+ncr.inc_and_price.3 <- st_drop_geometry(ncr.bg) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "block group") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(ncr.inc_and_price.2)
+
+# VA
+va.bg <- dmv.bg[substr(dmv.bg$GEOID, 1, 2) == "51",]
+va.inc_and_price <- left_join(va.bg[,c("GEOID", "median_household_incomeE")],
+                              va_bg_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+va.inc_and_price.2 <- st_drop_geometry(va.inc_and_price) %>% drop_na(value)
+va.inc_and_price.3 <- st_drop_geometry(va.bg) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "block group") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(va.inc_and_price.2)
+
+# DC
+dc.bg <- dmv.bg[substr(dmv.bg$GEOID, 1, 2) == "11",]
+dc.inc_and_price <- left_join(dc.bg[,c("GEOID", "median_household_incomeE")],
+                              dc_bg_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+dc.inc_and_price.2 <- st_drop_geometry(dc.inc_and_price) %>% drop_na(value)
+dc.inc_and_price.3 <- st_drop_geometry(dc.bg) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "block group") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(dc.inc_and_price.2)
+
+# MD
+md.bg <- dmv.bg[substr(dmv.bg$GEOID, 1, 2) == "24",]
+md.inc_and_price <- left_join(md.bg[,c("GEOID", "median_household_incomeE")],
+                              md_bg_broadband_now_2021_internet_package_price, by = c("GEOID" = "geoid")) %>%
+  mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
+  select(-c(median_household_incomeE, value)) %>%
+  mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
+  rename(value = perc_annual_income, geoid = GEOID) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
+md.inc_and_price.2 <- st_drop_geometry(md.inc_and_price) %>% drop_na(value)
+md.inc_and_price.3 <- st_drop_geometry(md.bg) %>%
+  mutate(value = 64 / median_household_incomeE * 100 * 12, measure = "perc_income_avg_nat_package",
+         measure_type = "percent", measure_units = as.character(NA), year = 2021, region_type = "block group") %>%
+  select(-c(median_household_incomeE, median_household_incomeM)) %>%
+  rename(geoid = GEOID, region_name = NAME) %>%
+  relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(md.inc_and_price.2)
+
+
+# con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
+# dc_dbWriteTable(con, "dc_digital_communications", "ncr_bg_sdad_2021_perc_income_on_internet_update", ncr.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "va_bg_sdad_2021_perc_income_on_internet_update", va.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "dc_bg_sdad_2021_perc_income_on_internet_update", dc.inc_and_price.3)
+# dc_dbWriteTable(con, "dc_digital_communications", "md_bg_sdad_2021_perc_income_on_internet_update", md.inc_and_price.3)
+# dbDisconnect(con)
+
+unique(dc.inc_and_price.3$measure)
+```
+
+
