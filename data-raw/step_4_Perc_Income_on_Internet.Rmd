@@ -3,6 +3,8 @@ title: "Untitled"
 output: html_document
 ---
 
+# imports
+
 ```{r}
 library(sf)
 library(tidyverse)
@@ -19,6 +21,8 @@ library(tidygeocoder)
 library(readxl)
 library(DBI)
 ```
+
+# read in internet package price data
 
 ```{r}
 con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
@@ -77,9 +81,8 @@ ncr_tr_broadband_now_2021_internet_package_price.final <- rbind(ncr_tr_broadband
 ncr_bg_broadband_now_2021_internet_package_price.final <- rbind(ncr_bg_broadband_now_2021_internet_package_price.2, ncr_bg_broadband_now_2021_internet_package_price)
 ```
 
-
-
 # looking at median income in tracts!
+
 ```{r}
 dmv.ct <- get_acs(geography = "county",
                  year = 2019,
@@ -104,8 +107,10 @@ dmv.bg <- get_acs(geography = "block group",
                  geometry = TRUE)
 ```
 
+# compute % HH income on internet packages @ tract level
 
 ```{r}
+# NCR
 ncr.tr <- dmv.tr[substr(dmv.tr$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
 ncr.inc_and_price <- left_join(ncr.tr[,c("GEOID", "median_household_incomeE")],
                                ncr_tr_broadband_now_2021_internet_package_price.final, by = c("GEOID" = "geoid")) %>%
@@ -175,8 +180,10 @@ md.inc_and_price.3.tr <- st_drop_geometry(md.tr) %>%
 
 ```
 
+# compute % HH income on internet packages @ county level
 
 ```{r}
+# NCR
 ncr.ct <- dmv.ct[substr(dmv.ct$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
 ncr.inc_and_price <- left_join(ncr.ct[,c("GEOID", "median_household_incomeE")],
                                ncr_ct_broadband_now_2021_internet_package_price.final, by = c("GEOID" = "geoid")) %>%
@@ -246,8 +253,10 @@ md.inc_and_price.3.ct <- st_drop_geometry(md.ct) %>%
 
 ```
 
+# compute % HH income on internet packages @ block group level
 
 ```{r}
+# NCR
 ncr.bg <- dmv.bg[substr(dmv.bg$GEOID, 1, 5) %in% c("51013", "51059", "51107", "51510", "51600", "51153", "51683", "51685", "51610", "11001", "24031", "24033", "24017", "24021"),]
 ncr.inc_and_price <- left_join(ncr.bg[,c("GEOID", "median_household_incomeE")],
                                ncr_bg_broadband_now_2021_internet_package_price.final, by = c("GEOID" = "geoid")) %>%
@@ -327,26 +336,29 @@ va.ct.2 <- get_acs(geography = "county",
                    state = "VA",
                    survey = "acs5",
                    output = "wide",
-                   geometry = TRUE)
+                   geometry = F)
 
+# health districts
 health_district <- read.csv("/project/biocomplexity/sdad/projects_data/vdh/va_county_to_hd.csv")
 health_district$county_id <- as.character(health_district$county_id)
 
 con <- get_db_conn(db_pass = "rsu8zvrsu8zv")
-health_district_geoids <- st_read(con, query = "SELECT * FROM dc_common.va_hd_sdad_2021_virginia_health_district_geoids")
-dbDisconnect(con)
+health_district_geoids <- st_read(con, query = "SELECT * FROM dc_geographies.va_hd_vdh_2021_health_district_geo_names")
+DBI::dbDisconnect(con)
+
 health_district_2 <- left_join(health_district, health_district_geoids, by = c("health_district" = "region_name"))
-va.hd <- st_drop_geometry(va.ct.2) %>%
+  
+va.hd <- va.ct.2 %>%
   merge(health_district_2, by.x = "GEOID", by.y = "county_id") %>%
   group_by(health_district, geoid) %>%
   summarize(median_household_incomeE = sum(median_household_incomeE * popE) / sum(popE))
 
 va.inc_and_price <- va.hd %>%
-  merge(va_hd_broadband_now_2021_internet_package_price.final, by = "geoid") %>%
+  merge(va_hd_broadband_now_2021_internet_package_price.final[, c("region_type", "region_name", "measure", "value", "year")], by.x = "health_district", by.y = "region_name") %>%
   mutate(perc_annual_income = ifelse(value / median_household_incomeE * 100 * 12 > 0, value / median_household_incomeE * 100 * 12, NA)) %>%
-  select(-c(median_household_incomeE, value, health_district)) %>%
+  select(-c(median_household_incomeE, value)) %>%
   mutate(measure = paste0("perc_income_", measure), measure_type = "percent", measure_units = as.character(NA)) %>%
-  rename(value = perc_annual_income) %>%
+  rename(value = perc_annual_income, region_name = health_district) %>%
   relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units")
 va.inc_and_price.2 <- va.inc_and_price %>% drop_na(value)
 va.inc_and_price.3.hd <- va.hd %>%
@@ -356,7 +368,6 @@ va.inc_and_price.3.hd <- va.hd %>%
   rename(region_name = health_district) %>%
   relocate("geoid", "region_type", "region_name", "year", "measure", "value", "measure_type", "measure_units") %>% rbind(va.inc_and_price.2)
 ```
-
 
 # send data to database
 
@@ -373,7 +384,3 @@ dc_dbWriteTable(con, "dc_digital_communications", "dc_cttrbg_sdad_2021_perc_inco
 dc_dbWriteTable(con, "dc_digital_communications", "md_cttrbg_sdad_2021_perc_income_on_internet", md_perc_income_total)
 dbDisconnect(con)
 ```
-
-
-
-
