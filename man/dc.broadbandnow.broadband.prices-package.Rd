@@ -9,7 +9,7 @@
 Allows user to easily get broadband prices data from the SDAD Data Commons. Data can be provided directly or in a file.
 }
 \author{
-\strong{Maintainer}: Zach Alerte \email{rsu8zv@virginia.edu}
+\strong{Maintainer}: Zachary Alerte \email{rsu8zv@virginia.edu}
 
 Authors:
 \itemize{
