@@ -17,21 +17,23 @@ dataset_doi <- readLines(here::here("data/dataset_doi"))[1]
 
 ## Code you used to create dataset - LIST BELOW
 
-Ex: database_schema_name.database_table_name: file_name_that_created_this_table.R/RMD
+dc_digital_communications.ncr_bg_broadband_now_2021_internet_package_price_update,
+dc_digital_communications.ncr_tr_broadband_now_2021_internet_package_price_update
+dc_digital_communications.ncr_ct_broadband_now_2021_internet_package_price: DMV_Internet_Prices.RMD
+
+dc_digital_communications.ncr_bg_broadband_now_2021_internet_package_price_100_20, dc_digital_communications.ncr_tr_broadband_now_2021_internet_package_price_100_20,
+dc_digital_communications.ncr_ct_broadband_now_2021_internet_package_price_100_20: Price_Code_100_20.RMD
 
 
 ```{r data}
 
 # Ex database_table_name: "va_hd_vdoe_2019_2021_3rd_grade_mean_median_read_score"
-table_names = c("va_bg_sdad_2021_perc_income_on_internet_update",
-                "dc_bg_sdad_2021_perc_income_on_internet_update",
-                "md_bg_sdad_2021_perc_income_on_internet_update",
-                "va_tr_sdad_2021_perc_income_on_internet_update",
-                "dc_tr_sdad_2021_perc_income_on_internet_update",
-                "md_tr_sdad_2021_perc_income_on_internet_update",
-                "va_ct_sdad_2021_perc_income_on_internet_update",
-                "dc_ct_sdad_2021_perc_income_on_internet_update",
-                "md_ct_sdad_2021_perc_income_on_internet_update") 
+table_names = c("ncr_bg_broadband_now_2021_internet_package_price_update",
+                "ncr_tr_broadband_now_2021_internet_package_price_update",
+                "ncr_ct_broadband_now_2021_internet_package_price",
+                "ncr_bg_broadband_now_2021_internet_package_price_100_20",
+                "ncr_tr_broadband_now_2021_internet_package_price_100_20",
+                "ncr_ct_broadband_now_2021_internet_package_price_100_20")
     
 con <- get_db_conn()
 
@@ -49,7 +51,7 @@ for (i in 2:length(table_names))
 
 DBI::dbDisconnect(con)
 
-all_geos_file_name <- "dcmdva_broadbandnow_acs_sdad_2021_perc_income_on_internet"  #Ex: "va_vdoe_2019_2021_3rd_grade_mean_median_read_score"
+all_geos_file_name <- "ncr_cttrbg_2021_broadband_now_internet_package_price"  #Ex: "va_vdoe_2019_2021_3rd_grade_mean_median_read_score"
 assign(all_geos_file_name, all_geos_dat)
 ```
 

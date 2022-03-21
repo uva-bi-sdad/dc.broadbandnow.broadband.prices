@@ -5,33 +5,33 @@ date: "11/18/2021"
 output: html_document
 dataset:
   citation:
-      title: "Broadband Prices"
-      subtitle: "dc.broadbandnow.broadband_prices"
-      dsDescriptionValue: "Virginia Standards of Learning Test Scores collected by the Virginia Department of Education (VDOE)"
+      title: "Social Data Commons: Digital Communications: Broadband Prices"
+      subtitle: ""
+      dsDescriptionValue: "Internet Package Prices as reported by Broadbandnow.com and Percent Income"
       subject: "Social Sciences (Ex: Education, Politics, Sociology, Economics, Psychology)"
       productionDate: "2021-11-17"
       timePeriodCoveredStart: "2015-01-01"
       timePeriodCoveredEnd: "2021-01-01"
       dataSources:
         - "ACS"
-        - "County Health Rankings"
+        - "Broadbandnow.com"
       author:
+        - authorName: "Alerte, Zachary"
+          authorAffiliation: "Univeristy of Virginia"
         - authorName: "Schroeder, Aaron"
           authorAffiliation: "Univeristy of Virginia"
-        - authorName: "Charankevich, Hanna"
-          authorAffiliation: "Univeristy of Virginia"
-        - authorName: "Niagra, Bob"
-          authorAffiliation: "Univeristy of Waterloo"
       datasetContact:
         - datasetContactEmail: "ads7fg@virginia.edu"
           datasetContactName: "Schroeder, Aaron"
   geospatial:
     geographicCoverage:
       country: "United States"
-      state: "Virginia"
+      state: "Virginia, Maryland, D.C."
     geographicUnit:
       - "State Health District"
       - "County"
+      - "Census Tract"
+      - "Block Group"
 ---
 
 ```{r setup, include=FALSE}
